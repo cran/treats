@@ -1,0 +1,67 @@
+#Dependencies
+import(ape)
+import(stats)
+import(dispRity)
+
+importFrom("graphics","plot", "points", "lines", "hist", "text", "polygon", "legend")
+importFrom("grDevices","rgb", "as.raster")
+importFrom("MASS","mvrnorm")
+importFrom("rgl","plot3d","segments3d","spheres3d","points3d")
+importFrom("methods", "formalArgs", "is")
+importFrom("utils", "tail")
+
+## Main functions
+export(treats)
+export(print.treats)
+export(plot.treats)
+
+## Traits
+export(make.traits)
+export(trait.process)
+export(BM.process)
+export(discrete.process)
+export(OU.process)
+export(no.process)
+export(multi.peak.process)
+export(repulsion.process)
+
+## Modifiers
+export(make.modifiers)
+export(modifiers)
+export(branch.length)
+export(branch.length.trait)
+export(selection)
+export(speciation)
+export(speciation.trait)
+
+## Events
+export(make.events)
+export(events.condition)
+export(age.condition)
+export(taxa.condition)
+export(trait.condition)
+export(events.modification)
+export(random.extinction)
+export(trait.extinction)
+export(bd.params.update)
+export(traits.update)
+export(modifiers.update)
+export(founding.event)
+
+## Utilities
+export(crude.bd.est)
+export(dispRitreats)
+export(drop.things)
+export(drop.fossils)
+export(drop.livings)
+export(drop.singles)
+export(make.bd.params)
+export(make.treats)
+export(map.traits)
+export(parent.traits)
+export(transition.matrix)
+
+##S3 
+S3method(plot, treats) #incl traits
+S3method(print, treats) #incl traits modifiers and events
+
