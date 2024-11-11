@@ -4,11 +4,12 @@ import(stats)
 import(dispRity)
 
 importFrom("graphics","plot", "points", "lines", "hist", "text", "polygon", "legend")
-importFrom("grDevices","rgb", "as.raster")
+importFrom("grDevices","rgb", "as.raster", "adjustcolor", "hcl")
 importFrom("MASS","mvrnorm")
 importFrom("rgl","plot3d","segments3d","spheres3d","points3d")
 importFrom("methods", "formalArgs", "is")
 importFrom("utils", "tail")
+importFrom("geiger", "bd.km", "bd.ms")
 
 ## Main functions
 export(treats)
@@ -17,6 +18,7 @@ export(plot.treats)
 
 ## Traits
 export(make.traits)
+export(link.traits)
 export(trait.process)
 export(BM.process)
 export(discrete.process)
@@ -55,6 +57,8 @@ export(drop.things)
 export(drop.fossils)
 export(drop.livings)
 export(drop.singles)
+export(drop.tip.treats)
+export(keep.tip.treats)
 export(make.bd.params)
 export(make.treats)
 export(map.traits)
@@ -64,4 +68,7 @@ export(transition.matrix)
 ##S3 
 S3method(plot, treats) #incl traits
 S3method(print, treats) #incl traits modifiers and events
+S3method(drop.tip, treats)
+S3method(keep.tip, treats)
+
 

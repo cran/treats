@@ -1,3 +1,28 @@
+treats v1.1 (2024-11-11) 
+=========================
+
+### NEW FEATURES
+
+ * New function: `link.traits` to link several traits to each other
+ * New S3 function: `drop.tip` and `keep.tip` from `ape` now work on `"treats"` objects
+
+### MINOR IMPROVEMENTS
+
+ * `map.traits` now can directly save multiple mappings in the same object and can be plotted directly to visualise uncertainty.
+ * `crude.bd.est` now calculates the speciation and extinction rates based on the `geiger` package by default (using the `"estimate"` method) or just counts the events per time (using the `"count"` method).
+ * `make.treats` can now directly intake `dispRity` objects with trees and data (e.g. for visualisation).
+ * `plot.treats` now plots singletons nodes in light orange when present (with the option added to the manual as well). Thanks for Rob McDonald for the suggestion.
+ * `plot.treats` now handles dynamic plot window sizes when plotting multiple trees on top of each other.
+ * `plot.treats` now automatically plots any detectable discrete characters using the `"phylo"` format.
+ * revamped `traits` internal structure for more modularity.
+
+## BUG FIXES
+
+ * Plotting `col` option is now handled and explained correctly by `plot.treats` when complex (i.e. when not equal to the number of elements or the number of element categories). 
+ * Plotting `traits` now correctly displays multiple traits with the `trait` argument (thanks to Dominik Kopčak for spotting that one). 
+ * Removed bug where some `"founding"` events lead to an error "crossed_edges not found" when cleaning the treats output.
+ * `discrete.process` now works in *n* dimensions. Thanks to Caleb Scutt for spotting this one.
+
 treats v1.0 (2023-11-22) 
 =========================
 

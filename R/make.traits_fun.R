@@ -15,12 +15,16 @@ check.traits <- function(traits, events = FALSE) {
     ## Make dummy edge.length
     edge.length <- 42
     ## Make dummy parent trait
-    parent.trait <- 1 #TG changed from 123 for discrete traits bug
+    parent.trait <- 1
 
     ## Loop through each trait for detailed explanation on why it failed
     try_success <- list()
     for(one_trait in 1:length(traits)) {
-        try_success[[one_trait]] <- try(sim.element.trait(traits[[one_trait]], parent.trait, edge.length), silent = TRUE)
+        try_success[[one_trait]] <- try(
+                                        sim.element.trait(one.trait    = traits[[one_trait]],
+                                                          parent.trait = rep(parent.trait, length(traits[[one_trait]]$start)),
+                                                          edge.length  = edge.length)
+                                        , silent = TRUE)
     }
 
     ## catch the errors

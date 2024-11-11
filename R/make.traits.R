@@ -56,11 +56,14 @@ make.traits <- function(process = BM.process, n = NULL, start = NULL, process.ar
     match_call <- match.call()
 
     ## Check whether the process needs to be updated
+    conditional_update <- FALSE
     if(is.null(update)) {
         do_update <- FALSE
     } else {
         if(is(update, "treats") && is(update, "traits")) {
             do_update <- TRUE
+            ## Check if the trait is conditional
+            conditional_update <- "conditional.trait" %in% names(update$main) 
         } else {
             stop("You can only update a \"treats\" \"traits\" object. Check the documentation from the following function for helping designing such objects:\n    ?make.traits", call. = FALSE)
         }
@@ -69,21 +72,25 @@ make.traits <- function(process = BM.process, n = NULL, start = NULL, process.ar
     ## Set the process to default if update and process is null
     if(do_update && is.null(process)) {
         ## Set the process to the previous one(s)
-        process <- lapply(update$main, `[[`, "process")
+        if(!conditional_update) {
+            process <- lapply(lapply(update$main, `[[`, "process"), `[[`, 1)
+        } else {
+            process <- update$main$conditional.trait$process
+        }
         n_processes <- length(process)
     } else {
         ## Check the process(es)
         process_class <- check.class(process, c("function", "list"))
         n_processes <- length(process)
         if(process_class == "list") {
-            silent <- lapply(process, check.class, "function")
+            ## Check the processes class (ignore nulls)
+            silent <- lapply(process[!unlist(lapply(process, is.null))], check.class, "function")
         } else {
             process <- list(process)
         }
 
         ## TODO:
         ## Add the internal arguments to the process
-
     }
 
     ## Check the number of traits
@@ -150,7 +157,7 @@ make.traits <- function(process = BM.process, n = NULL, start = NULL, process.ar
     trait_id <- start_values <- vector("list", length(n))
     while(length(n_temp) > 0) {
         index <- index + 1
-        trait_id[[index]] <- seq(from = previous_n + 1, to = previous_n + n_temp[1])
+        trait_id[[index]] <- as.integer(seq(from = previous_n + 1, to = previous_n + n_temp[1]))
         start_values[[index]] <- start[trait_id[[index]]] 
         previous_n <- max(trait_id[[index]])
         n_temp <- n_temp[-1]
@@ -180,6 +187,7 @@ make.traits <- function(process = BM.process, n = NULL, start = NULL, process.ar
                         stop("process.args must be a named list of arguments.")
                     }
                 }
+                # process.args <- list(process.args = process.args)
             }
         }
     } 
@@ -230,19 +238,19 @@ make.traits <- function(process = BM.process, n = NULL, start = NULL, process.ar
     
     if(!do_update) {
         ## Add the process
-        traits$main <- lapply(process, function(x) return(list(process = x)))
+        traits$main <- lapply(process, function(x) return(list(process = list(x))))
         ## Add the ids and the starts
-        for(one_process in 1:n_processes)  {
+        for(one_process in 1:n_processes) {
             traits$main[[one_process]]$start    <- start_values[[one_process]]
             traits$main[[one_process]]$trait_id <- trait_id[[one_process]]
             if(add_process_args) {
                 ## Adding optional arguments if not NULL
                 if(!is.null(process.args[[one_process]][[1]])) {
-                    traits$main[[one_process]] <- c(traits$main[[one_process]], process.args[[one_process]])
+                    traits$main[[one_process]] <- c(traits$main[[one_process]], process.args = list(process.args[one_process]))
                 }
             }
         }
-
+    
         ## Add previous traits
         if(add_traits) {
             traits$main <- c(add$main, traits$main)
@@ -251,7 +259,6 @@ make.traits <- function(process = BM.process, n = NULL, start = NULL, process.ar
         ## Add names
         names(traits$main) <- trait_names
     } else {
-
         ## Update the traits
         traits$main <- update$main
 
@@ -261,29 +268,48 @@ make.traits <- function(process = BM.process, n = NULL, start = NULL, process.ar
         ## Add the ids and the starts
         for(i in seq_along(updates)) {
 
-            ## Update the process
-            traits$main[[updates[[i]]]]$process <- process[[i]]
+            if(!conditional_update) {
+                ## Update the process
+                traits$main[[updates[[i]]]]$process[[1]] <- process[[i]]
+            } else {
+                ## Update the process
+                for(j in 1:length(process)) {
+                    if(!is.null(process[[j]])) {
+                        traits$main$conditional.trait$process[[j]] <- process[[j]]
+                    }
+                }
+            }
+
             ## Update the starting value
             traits$main[[updates[[i]]]]$start   <- start_values[[i]][1:length(traits$main[[updates[[i]]]]$start)]
 
             if(add_process_args) {
+
+                if(conditional_update) {
+                    stop("Process arguments update is not yet implemented for conditional traits.")
+                }
+
                 ## Replacing/adding optional arguments if not NULL
                 if(!is.null(process.args[[updates[[i]]]][[1]])) {
                     ## Get the available names in the object to update
                     to_update <- names(process.args[[i]])
-                    to_add <- id_to_add <- which(!(to_update %in% names(traits$main[[updates[[i]]]])))
+                    present_arguments <- unlist(lapply(traits$main[[updates[[i]]]]$process.args, names))
+                    ## Detect whether to add new process.args
+                    to_add <- id_to_add <- which(!(to_update %in% present_arguments))
+                    ## Sort which arguments needs adding and which ones need updating
                     if(length(id_to_add) != 0) {
                         to_add <- to_update[id_to_add]
                         to_update <- to_update[-id_to_add]
                     } 
-
+                    ## Update the arguments
                     if(length(to_update) != 0) {
                         ## Replace the existing arguments
-                        traits$main[[updates[[i]]]][[to_update]] <- process.args[[i]][[to_update]]
+                        traits$main[[updates[[i]]]]$process.args[[1]][[to_update]] <- process.args[[i]][[to_update]]
                     }
+                    ## Add the arguments
                     if(length(to_add) != 0) {
                         ## Add new arguments
-                        traits$main[[updates[[i]]]] <- c(traits$main[[updates[[i]]]], process.args[[i]][to_add])
+                        traits$main[[updates[[i]]]]$process.args[[1]] <- c(traits$main[[updates[[i]]]]$process.args[[1]], process.args[[i]][to_add])
                     }
                 }
             }

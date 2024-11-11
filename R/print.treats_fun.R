@@ -1,12 +1,13 @@
 ## Function for printing the traits info
 internal.print.traits.info <- function(x) {
+
     ## Get the trait object info
     n_processes   <- length(x)
     trait_process <- lapply(x, function(X) X$trait_id)
     n_traits      <- length(unlist(trait_process))
     start_values  <- unlist(lapply(x, function(X) X$start))
     n_start       <- length(unique(start_values))
-    extra_options <- lapply(x, function(X) names(X)[!names(X) %in% c("process", "start", "trait_id")])
+    extra_options <- lapply(x, function(X) lapply(X$process.args, names))
     with_extra    <- unlist(lapply(extra_options, function(x) length(x) != 0))
 
     ## Number of traits
@@ -30,7 +31,7 @@ internal.print.traits.info <- function(x) {
     if(any(with_extra)) {
         for(one_process in seq_along(with_extra)) {
             if(with_extra[one_process]) {
-                cat(paste0("process ", names(x)[one_process], " uses the following extra argument", ifelse(length(extra_options[[one_process]]) > 1, "s: ", ": "), paste0(extra_options[[one_process]], collapse = ","), ";\n"))
+                cat(paste0("process ", names(x)[one_process], " uses the following extra argument", ifelse(length(extra_options[[one_process]]) > 1, "s: ", ": "), paste0(extra_options[[one_process]], collapse = ", "), ".\n"))
             }
         }
         paste0("\n")

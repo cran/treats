@@ -3,7 +3,7 @@
 #' @description Plotting treats objects (either a simulated tree and trait(s) or a process for traits objects)
 #'
 #' @param x \code{treats} data.
-#' @param col Optional, a vector of colours that can be named (see details).
+#' @param col Optional, a \code{vector} of colours that can be named or a \code{function} (see details).
 #' @param ... Any additional options to be passed to plot functions (from \code{graphics} or \code{rgl} if \code{use.3D = TRUE}).
 #' @param trait which trait to plot (default is \code{1}; see details).
 #' @param edges either a colour name to attribute to the edges or \code{NULL} to not display the edges (default is \code{"grey"}).
@@ -13,6 +13,8 @@
 #' @param cent.tend if the input is a \code{treats} \code{traits}, which central tendency to plot (default is \code{mean}).
 #' @param quantiles if the input is a \code{treats} \code{traits}, which quantiles to plot (default are \code{c(95, 50))}).
 #' @param legend logical, whether to display the legend in 2D plots (\code{TRUE}) or not (\code{FALSE}; default)
+#' @param add logical, whether to add to a previous plot.
+#' @param transparency Optional, a transparency factor (\code{1} = not transparent, \code{0} = invisible). If left empty, and multiple plots are called, the transparency is set to 1 / number of plots + 0.1. 
 #' 
 #' @return No return value, plot \code{x}'s content.
 #'
@@ -20,7 +22,8 @@
 #' The \code{col} option can be either:
 #' \itemize{
 #'      \item a \code{vector} of colours to be applied to \code{"treats"} \code{"traits"} objects (for respectively the median, 50% CI and 95% CI - by default this is \code{col = c("black", "grey", "lightgrey")}). This is the default option when plotting traits.
-#'      \item a \code{vector} of colours to be applied to \code{"treats"} objects for the colours of different elements of the plot. This vector cycles through different elements of the the tree depending on the length of the vector: if one colour is given, it is applied to all elements; if two colours are given, the first one is applied to the nodes and the second to the tips; if three colours are given, they are applied to the nodes, fossils and living elements respectively. If more colours are given, they are applied in a gradient way to all elements depending on their age (see the \code{function} usage below). Note that you can always name the vector elements for avoiding ambiguities: e.g. \code{col = c("nodes" = "orange", "fossils" = "lightblue", "livings" = "blue")} (the default - you can use the name \code{"tips"} to designate both livings and fossils).
+#'      \item a \code{vector} of colours to be applied to \code{"treats"} objects for the colours of different elements of the plot. This vector is applied to all the elements in the tree using the order in \code{tree$tip.label} and \code{tree$node.label}.
+#'      \item an unambiguous named \code{vector} for colouring each specific elements. These can be any of the following (with default colours) \code{col = c("nodes" = "orange", "fossils" = "lightblue", "livings" = "blue")} or \code{"tips"} to designate both livings and fossils and \code{"singletons"} to designate non-bifurcating nodes.
 #'      \item a \code{function} from which to sample the colours to match the time gradient for each element.
 #' }
 #' 
@@ -40,8 +43,8 @@
 #' plot(my_tree, main = "A pure birth tree")
 #' 
 #' ## Simulating a tree with traits
-#' my_data <- treats(stop.rule = list(max.taxa = 10),
-#'                 traits    = my_trait)
+#' my_data <- treats(stop.rule = list(max.taxa = 100),
+#'                   traits    = my_trait)
 #' ## Plotting the tree and traits
 #' plot(my_data)
 #'
@@ -49,13 +52,14 @@
 #' my_3D_trait <- make.traits(n = 3)
 #' ## Simulating a birth death tree with that trait
 #' my_data <- treats(bd.params = list(extinction = 0.2),
-#'                 stop.rule = list(max.living = 50),
-#'                 traits    = my_3D_trait)
+#'                   stop.rule = list(max.living = 50),
+#'                   traits    = my_3D_trait)
 #' 
 #' ## Plotting the second trait and the tree (default)
 #' ## The colours are purple for nodes and blue for tips
 #' ## with a black circle for highlighting the tips
-#' plot(my_data, trait = 2, col = c("purple", "blue"),
+#' plot(my_data, trait = 2,
+#'      col = c("nodes" = "purple", "tips" = "blue"),
 #'      edges = "pink", tips.nodes = "black")
 #' 
 #' ## Plotting the first and third trait correlation
@@ -78,7 +82,7 @@
 #' @author Thomas Guillerme
 #' @export
 
-plot.treats <- function(x, col, ..., trait = 1, edges = "grey", tips.nodes = NULL, use.3D = FALSE, simulations = 50, cent.tend = mean, quantiles = c(95, 50), legend = FALSE) {
+plot.treats <- function(x, col, ..., trait = 1, edges = "grey", tips.nodes = NULL, use.3D = FALSE, simulations = 20, cent.tend = mean, quantiles = c(95, 50), legend = FALSE, transparency, add = FALSE) {
 
     match_call <- match.call()
 
@@ -94,8 +98,37 @@ plot.treats <- function(x, col, ..., trait = 1, edges = "grey", tips.nodes = NUL
         second_class <- treats_class[2]
 
         if(second_class == "traits") {
-            ## Selecting the trait
-            one_trait <- data$main[[trait]]
+
+            ## Get all the traits id
+            trait_IDs <- lapply(data$main, function(x) return(x$trait_id))
+
+            ## Check if the trait is multidimensional
+            if(length(trait_IDs) != length(unlist(trait_IDs))) {
+                ## Find which trait is requested
+                which_trait <- lapply(trait_IDs, function(x, request) x %in% request, request = trait)
+                ## Find which process is requested
+                which_process <- which(unlist(lapply(which_trait, any)))
+                ## Select the process and the trait
+                one_trait <- data$main[[which_process]]
+                # Select the trait
+                if(!is.null(one_trait$start) && length(one_trait$start) != 1) {
+                    one_trait$start <- one_trait$start[which_trait[[which_process]]]
+                }
+                if(!is.null(one_trait$trait_id) && length(one_trait$trait_id) != 1) {
+                    one_trait$trait_id <- one_trait$trait_id[which_trait[[which_process]]]
+                }
+                ## Handle extra process arguments
+                if(!is.null(one_trait$process.args)) {
+                    if(any(process_args <- which(unlist(lapply(one_trait$process.args[[which_process]], length)) > 1))) {
+                        for(one_arg in process_args) {
+                            one_trait$process.args[[which_process]][[one_arg]] <- list(one_trait$process.args[[which_process]][[one_arg]][[trait]])
+                        }
+                    }
+                }
+            } else {
+                ## Selecting the trait
+                one_trait <- data$main[[trait]]                
+            }
 
             ## Selecting the trait ids
             if(use.3D) {
@@ -104,7 +137,7 @@ plot.treats <- function(x, col, ..., trait = 1, edges = "grey", tips.nodes = NUL
                 trait_ids <- 1
             }
 
-            ##TODO: handle colours!
+            ## Handle colours
             if(missing(col)) {
                 col <- "default"
             }
@@ -179,6 +212,66 @@ plot.treats <- function(x, col, ..., trait = 1, edges = "grey", tips.nodes = NUL
         return(invisible())
     }
 
+    ## Make the data a data list
+    if(is(data[[1]], "treats")) {
+
+        ## Set transparency
+        if(missing(transparency)) {
+            transparency <- 1/length(data) + 0.1
+        }
+        
+        ## Detect the plot limits for the first plot
+        dots <- list(...)
+        xlim <- ylim <- zlim <- NULL
+        if(is.null(dots$xlim)) {
+            xlim <- range(unlist(lapply(data, function(x, trait) range(x$data[, trait[1]]), trait = trait)))
+        }
+        if(is.null(dots$ylim)) {
+            if(length(trait) > 1) {
+                ## ylim is the second trait
+                ylim <- range(unlist(lapply(data, function(x, trait) range(x$data[, trait[2]]), trait = trait)))
+            } else {
+                ## ylim is the tree depth
+                get.root.time <- function(x) {
+                    if(is.null(x$tree$root.time)) {
+                        return(max(tree.age(x$tree)$age))
+                    } else {
+                        return(x$tree$root.time)
+                    }
+                }
+                ylim <- xlim
+                xlim <- c(max(unlist(lapply(data, get.root.time))), 0)
+            }
+        }   
+        if(is.null(dots$zlim) && use.3D) {
+            if(length(trait) > 2) {
+                ## zlim is the second trait
+                zlim <- range(unlist(lapply(data, function(x, trait) range(x$data[, trait[3]]), trait = trait)))
+            } else {
+                ## zlim is the tree depth
+                get.root.time <- function(x) {
+                    if(is.null(x$tree$root.time)) {
+                        return(max(tree.age(x$tree)$age))
+                    } else {
+                        return(x$tree$root.time)
+                    }
+                }
+                zlim <- ylim
+                ylim <- c(max(unlist(lapply(data, get.root.time))), 0)
+            }
+        }
+
+        ## First plot
+        plot.treats(data[[1]], col = col, xlim = xlim, ylim = ylim, zlim = zlim, ..., trait = trait, edges = edges, tips.nodes = tips.nodes, use.3D = use.3D, legend = legend, transparency = transparency, add = FALSE)
+        # plot.treats(data[[1]], col = col, xlim = xlim, ylim = ylim, zlim = zlim,  trait = trait, edges = edges, tips.nodes = tips.nodes, use.3D = use.3D, legend = legend, transparency = transparency, add = FALSE) ; warning("DEBUG")
+
+        ## Subsequent plots
+        lapply(data[-1], plot.treats, col = col, ..., trait = trait, edges = edges, tips.nodes = tips.nodes, use.3D = use.3D, legend = FALSE, transparency = transparency, add = TRUE)
+        # lapply(data[-1], plot.treats, col = col, trait = trait, edges = edges, tips.nodes = tips.nodes, use.3D = use.3D, legend = FALSE, transparency = transparency, add = TRUE) ; warning("DEBUG")
+
+        return(invisible())
+    }
+
     ## Sanitizing
     if(missing(col)) {
         col <- "default"
@@ -202,6 +295,7 @@ plot.treats <- function(x, col, ..., trait = 1, edges = "grey", tips.nodes = NUL
         do_circles <- TRUE
     }
     check.class(use.3D, "logical")
+    check.class(add, "logical")
 
     ## Handle the type of plot
     if((n_traits <- length(trait)) > 3) {
@@ -213,6 +307,78 @@ plot.treats <- function(x, col, ..., trait = 1, edges = "grey", tips.nodes = NUL
                             "2" = ifelse(use.3D, TRUE, FALSE),
                             "3" = ifelse(use.3D, FALSE, stop("Set use.3D = TRUE to display three traits.", call. = FALSE)))
     }
+
+    ## Check whether to plot discrete characters
+    do_discrete_plot <- FALSE
+    if(!is.null(data$data) && length(trait) == 1) {
+        ## Is discrete?
+        if(!is.integer(data$data[, trait])) {
+            do_discrete_plot <- all(as.integer(data$data[, trait]) == unname(data$data[, trait]))
+            if(is.na(do_discrete_plot)) {
+                do_discrete_plot <- FALSE
+            }
+        } else {
+            do_discrete_plot <- TRUE
+        }
+    }
+
+    ## Plotting discrete characters on a tree
+    if(do_discrete_plot) {
+        ## Isolate the components
+        tree <- ladderize(data$tree)
+        data <- data$data
+        tips <- match(tree$tip.label, rownames(data))
+        nodes <- match(tree$node.label, rownames(data))
+
+        ## Get the number of states
+        n_states <- length(unique(data[, trait]))
+        
+        ## Get the data to plot
+        data_plot <- data[, trait]
+        ## Remove 0 base (if exists)
+        if(any(data_plot == 0)) {
+            data_plot <- data_plot + 1
+        }
+
+
+        ## Set the colours
+        if(col[1] == "default") {
+            ## Default colours
+            if(n_states <= 3) {
+                col <- c("orange", "blue", "darkgreen")
+            } else {
+                col <- grDevices::hcl(h = seq(15, 375, length = n_states + 1), l = 65, c = 100)[1:n_states]
+            }
+        } else {
+            if(length(col) < n_states) {
+                col <- rep(col, n_states)
+            }
+        }
+        col <- col[1:n_states]
+
+        ## Plotting args
+        plot_args <- list(...)
+        plot_args$x <- tree
+
+        ## Handle the default parameters for the tree plot
+        if(is.null(plot_args$show.tip.label)) {
+            plot_args$show.tip.label <- FALSE
+        }
+        if(is.null(plot_args$edge.color)) {
+            plot_args$edge.color <-  match.tip.edge(vector = col[data_plot[c(tips, nodes)]], phylo = tree)
+        }
+
+        ## Plot the tree with the edge colours
+        do.call(plot.phylo, plot_args)
+
+        if(legend) {
+            col_order <- match(sort(unique(data[, trait])), unique(data[, trait])) 
+            legend("bottomleft", legend = as.character(unique(data[, trait]))[col_order], lty = 1, col = col[col_order], title = colnames(data)[trait])
+        }
+
+        ## Leave the functions
+        return(invisible())
+    }    
 
     ## Handle plot options
 
@@ -335,23 +501,33 @@ plot.treats <- function(x, col, ..., trait = 1, edges = "grey", tips.nodes = NUL
 
     ## Handle the colours
     col_handle <- handle.colours(col, points_tree_IDs, points_ages, data, legend)
-    points_params$col <- col_handle$col
+    if(!missing(transparency)) {
+        points_params$col <- grDevices::adjustcolor(col_handle$col, alpha.f = transparency)
+    } else {
+        points_params$col <- col_handle$col
+    }
     legend_col <- col_handle$legend
 
     ## Plotting the frame
-    if(!use.3D) {
-        plot_params <- c(plot_params, x = list(NULL), y = list(NULL))
-        do.call(plot, plot_params)
-    } else {
-        plot_params <- c(plot_params, x = list(NULL), y = list(NULL), z = list(NULL))
-        do.call(rgl::plot3d, plot_params)
+    if(!add) {
+        if(!use.3D) {
+            plot_params <- c(plot_params, x = list(NULL), y = list(NULL))
+            do.call(plot, plot_params)
+        } else {
+            plot_params <- c(plot_params, x = list(NULL), y = list(NULL), z = list(NULL))
+            do.call(rgl::plot3d, plot_params)
+        }
     }
 
     ## Plotting the tree (if needed)
     if(do_edges) {
 
         ## Add the colours
-        lines_params$col <- edges
+        if(!missing(transparency)) {
+            lines_params$col <- grDevices::adjustcolor(edges, alpha.f = transparency)
+        } else {
+            lines_params$col <- edges
+        }
 
         if(!use.3D) {
             # ## Make the points data table

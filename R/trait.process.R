@@ -65,7 +65,6 @@
 #'               \item \code{lineage} LEAVE AS \code{NULL} (it designates the lineage object from the birth death process and is handled internally by \code{\link{treats}}).
 #'               \item \code{trait} LEAVE AS \code{NULL} (it which trait to use and is analysed an is handled internally by \code{\link{treats}}).
 #'          }
-#' 
 #' }
 #' 
 #' More details about the \code{trait.process} functions is explained in the \code{treats} manual: \url{http://tguillerme.github.io/treats}.
@@ -102,6 +101,8 @@
 #' stepwise_matrix <- transition.matrix(type = "stepwise", states = 3)
 #' ## Generatin and plotting the the trait
 #' plot(make.traits(discrete.process, process.args = list(transitions = stepwise_matrix)))
+#'
+#' ## 
 #' 
 #' @seealso \code{\link{treats}} \code{\link{make.traits}}
 #' 
@@ -116,6 +117,7 @@ trait.process <- function(x0 = 0, edge.length = 1, ...) {
     message("?no.process")
     message("?multi.peak.process")
     message("?repulsion.process")
+    message("?conditional.process")
 }
 
 ## The Brownian motion
@@ -125,8 +127,25 @@ BM.process <- function(x0 = 0, edge.length = 1, Sigma = diag(length(x0)), ...) {
 
 ## Discrete traits
 discrete.process <- function(x0 = 0, edge.length = 1, transitions = transition.matrix("ER", 2)) {
-    # TODO: wishlist: allow for rownames in the transition matrix as state names.
-    return(sample(0:(nrow(transitions)-1), size = 1, prob = transitions[round(abs(x0))+1, ] * edge.length))
+    # no_dims <- FALSE
+    # if(!is.null(states <- rownames(transitions))) {
+    #     no_dims <- TRUE
+    #     dimnames(transitions) <- NULL
+    #     ## Translate x0 to integer
+    #     x0 <- match(x0, states)-1
+    # }
+
+    # ## Get the trait values
+    # traits <- sapply(x0, function(x0, transitions, edge.length) sample(0:(nrow(transitions)-1), size = 1, prob = transitions[round(abs(x0))+1, ] * edge.length), transitions = transitions, edge.length = edge.length)
+
+    return(sapply(x0, function(x0, transitions, edge.length) sample(0:(nrow(transitions)-1), size = 1, prob = transitions[round(abs(x0))+1, ] * edge.length), transitions = transitions, edge.length = edge.length))
+
+    # ## Return the traits (and translate them back)
+    # if(no_dims) {
+    #     return(traits)
+    # } else {
+    #     return(states[(traits+1)])
+    # }
 }
 
 ## The OU process
